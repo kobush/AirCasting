@@ -1,13 +1,16 @@
+//#define COSM
+
 #include <SHT1x.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-
-#include <SPI.h>
-#include <Ethernet.h>
-#include <HttpClient.h>
-#include <Cosm.h>
-
 #include <DHT22.h>
+
+#ifdef COSM
+  #include <SPI.h>
+  #include <Ethernet.h>
+  #include <HttpClient.h>
+  #include <Cosm.h>
+#endif
 
 // These constants won't change.  They're used to give names
 // to the pins used:
@@ -35,14 +38,21 @@ int numberOfDevices;
 #define DHT22_PIN 9
 DHT22 dht(DHT22_PIN);
 
+const int streams = 6;
+float valueSums[streams];
+int valueCount = 0;
+
+#ifdef COSM
 // MAC address for your Ethernet shield
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte ip[] = { 192, 168, 1, 222 };
+
+const int cosmFeed = 118926;
 
 // Your Cosm key to let you upload data
-char cosmKey[] = "T5xJiZKMNobBnyLi8a-QiyUO6eqSAKxvdE1KZkcrOEx3UT0g";
+char cosmKey[] = "2pv3BkmFW1c9E3V-YjaBsJ9K6OmSAKxQMXhzc3RHRm53dz0g";
 
 // Define the strings for our datastream IDs
-const int streams = 6;
 char LM35_TempC_Id[] = "LM35_TempC";
 char DS18B20_TempC_Id[] = "DS18B20_TempC";
 char SHT15_Humidity_Id[] = "SHT15_Humidity";
@@ -58,30 +68,31 @@ CosmDatastream datastreams[] = {
   CosmDatastream(DHT22_Humidity_Id, strlen(DHT22_Humidity_Id), DATASTREAM_FLOAT),
 };
 // Finally, wrap the datastreams into a feed
-CosmFeed feed(96858, datastreams, streams /* number of datastreams */);
-
-float valueSums[streams];
-int valueCount = 0;
+CosmFeed feed(cosmFeed, datastreams, streams /* number of datastreams */);
 
 EthernetClient client;
 CosmClient cosmclient(client);
 
 unsigned long previousUploadMillis = 0;
 unsigned long uploadInterval = 60 * 1000L; // send every minute
-
+#endif
 
 void setup() {
   // initialize serial communications at 9600 bps:
   Serial.begin(9600); 
+  Serial.println(F("TempSensor starting... "));
 
-  analogReference(INTERNAL);
-
+#ifdef COSM
   // initialize ethernet from DHCP
   while (Ethernet.begin(mac) != 1)
   {
     Serial.println("Error getting IP address via DHCP, trying again...");
-    delay(15000);
+    delay(15000); // wait 15 sec
   }
+//  Ethernet.begin(mac, ip);
+#endif
+
+  analogReference(INTERNAL);
   
   sensors.begin();
   delay(100);
@@ -254,6 +265,7 @@ void loop() {
    
   valueCount++;
   
+#ifdef COSM  
   unsigned long currentMillis = millis();
   if ((currentMillis - previousUploadMillis)  > uploadInterval)
   {
@@ -271,7 +283,7 @@ void loop() {
      Serial.print(F("HTTP result "));
      Serial.println(ret);
   }
-  
+#endif  
 //  sendPlotData("LOOP", millis()- startMilis);
 }
 
